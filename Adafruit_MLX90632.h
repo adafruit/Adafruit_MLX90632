@@ -121,6 +121,28 @@
 #define MLX90632_REG_RAM_60 0x403B ///< Raw data 60
 /*=========================================================================*/
 
+/*=========================================================================
+    CONTROL REGISTER ENUMS
+    -----------------------------------------------------------------------*/
+/*!
+ *    @brief  MLX90632 measurement modes
+ */
+typedef enum {
+  MLX90632_MODE_HALT = 0x00,           ///< Halt mode for EEPROM operations
+  MLX90632_MODE_SLEEPING_STEP = 0x01,  ///< Sleeping step mode
+  MLX90632_MODE_STEP = 0x02,           ///< Step mode
+  MLX90632_MODE_CONTINUOUS = 0x03      ///< Continuous mode
+} mlx90632_mode_t;
+
+/*!
+ *    @brief  MLX90632 measurement types
+ */
+typedef enum {
+  MLX90632_MEAS_MEDICAL = 0x00,        ///< Medical measurement
+  MLX90632_MEAS_EXTENDED_RANGE = 0x11  ///< Extended range measurement
+} mlx90632_meas_select_t;
+/*=========================================================================*/
+
 /*!
  *    @brief  Class that stores state and functions for interacting with
  *            MLX90632 Far Infrared Temperature Sensor
@@ -131,6 +153,19 @@ public:
   ~Adafruit_MLX90632();
   bool begin(uint8_t i2c_addr = MLX90632_DEFAULT_ADDR, TwoWire *wire = &Wire);
   uint64_t getProductID();
+  uint16_t getProductCode();
+  bool startSingleMeasurement();
+  bool startFullMeasurement();
+  bool setMode(mlx90632_mode_t mode);
+  mlx90632_mode_t getMode();
+  bool setMeasurementSelect(mlx90632_meas_select_t meas_select);
+  mlx90632_meas_select_t getMeasurementSelect();
+  bool isBusy();
+  bool isEEPROMBusy();
+  bool reset();
+  uint8_t readCyclePosition();
+  bool resetNewData();
+  bool isNewData();
 
 private:
   Adafruit_I2CDevice *i2c_dev; ///< Pointer to I2C bus interface
