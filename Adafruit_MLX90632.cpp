@@ -15,10 +15,15 @@
 
 #include "Adafruit_MLX90632.h"
 
+#define MLX90632_DEBUG
+
 /*!
  *    @brief  Instantiates a new MLX90632 class
  */
-Adafruit_MLX90632::Adafruit_MLX90632() {}
+Adafruit_MLX90632::Adafruit_MLX90632() {
+  TO0 = 25.0;  // Initialize previous object temperature
+  TA0 = 25.0;  // Initialize previous ambient temperature
+}
 
 /*!
  *    @brief  Cleans up the MLX90632
@@ -376,30 +381,32 @@ bool Adafruit_MLX90632::getCalibrations() {
   Ha = (double)(int16_t)ha_reg.read() * (double)pow(2, -14);  // 2^-14
   Hb = (double)(int16_t)hb_reg.read() * (double)pow(2, -10);  // 2^-10
   
+#ifdef MLX90632_DEBUG
   // Debug: Print calibration constants
-  Serial.println("Calibration constants:");
-  Serial.print("P_R = "); Serial.println(P_R, 8);
-  Serial.print("P_G = "); Serial.println(P_G, 8);
-  Serial.print("P_T = "); Serial.println(P_T, 12);
-  Serial.print("P_O = "); Serial.println(P_O, 8);
-  Serial.print("Aa = "); Serial.println(Aa, 8);
-  Serial.print("Ab = "); Serial.println(Ab, 8);
-  Serial.print("Ba = "); Serial.println(Ba, 8);
-  Serial.print("Bb = "); Serial.println(Bb, 8);
-  Serial.print("Ca = "); Serial.println(Ca, 8);
-  Serial.print("Cb = "); Serial.println(Cb, 8);
-  Serial.print("Da = "); Serial.println(Da, 8);
-  Serial.print("Db = "); Serial.println(Db, 8);
-  Serial.print("Ea = "); Serial.println(Ea, 8);
-  Serial.print("Eb = "); Serial.println(Eb, 8);
-  Serial.print("Fa = "); Serial.println(Fa, 12);
-  Serial.print("Fb = "); Serial.println(Fb, 10);
-  Serial.print("Ga = "); Serial.println(Ga, 10);
-  Serial.print("Gb = "); Serial.println(Gb, 8);
-  Serial.print("Ka = "); Serial.println(Ka, 8);
-  Serial.print("Kb = "); Serial.println(Kb);
-  Serial.print("Ha = "); Serial.println(Ha, 8);
-  Serial.print("Hb = "); Serial.println(Hb, 8);
+  Serial.println(F("Calibration constants:"));
+  Serial.print(F("  P_R = ")); Serial.println(P_R, 8);
+  Serial.print(F("  P_G = ")); Serial.println(P_G, 8);
+  Serial.print(F("  P_T = ")); Serial.println(P_T, 12);
+  Serial.print(F("  P_O = ")); Serial.println(P_O, 8);
+  Serial.print(F("  Aa = ")); Serial.println(Aa, 8);
+  Serial.print(F("  Ab = ")); Serial.println(Ab, 8);
+  Serial.print(F("  Ba = ")); Serial.println(Ba, 8);
+  Serial.print(F("  Bb = ")); Serial.println(Bb, 8);
+  Serial.print(F("  Ca = ")); Serial.println(Ca, 8);
+  Serial.print(F("  Cb = ")); Serial.println(Cb, 8);
+  Serial.print(F("  Da = ")); Serial.println(Da, 8);
+  Serial.print(F("  Db = ")); Serial.println(Db, 8);
+  Serial.print(F("  Ea = ")); Serial.println(Ea, 8);
+  Serial.print(F("  Eb = ")); Serial.println(Eb, 8);
+  Serial.print(F("  Fa = ")); Serial.println(Fa, 12);
+  Serial.print(F("  Fb = ")); Serial.println(Fb, 10);
+  Serial.print(F("  Ga = ")); Serial.println(Ga, 10);
+  Serial.print(F("  Gb = ")); Serial.println(Gb, 8);
+  Serial.print(F("  Ka = ")); Serial.println(Ka, 8);
+  Serial.print(F("  Kb = ")); Serial.println(Kb);
+  Serial.print(F("  Ha = ")); Serial.println(Ha, 8);
+  Serial.print(F("  Hb = ")); Serial.println(Hb, 8);
+#endif
   
   return true;
 }
@@ -427,16 +434,139 @@ double Adafruit_MLX90632::getAmbientTemperature() {
   double amb_diff = AMB - P_R;
   double ambient_temp = P_O + (amb_diff / P_G) + P_T * (amb_diff * amb_diff);
   
+#ifdef MLX90632_DEBUG
   // Debug output
-  Serial.print("RAM_6 = "); Serial.println(ram6);
-  Serial.print("RAM_9 = "); Serial.println(ram9);
-  Serial.print("Gb = "); Serial.println(Gb, 8);
-  Serial.print("VRTA = "); Serial.println(VRTA, 8);
-  Serial.print("AMB = "); Serial.println(AMB, 8);
-  Serial.print("AMB - P_R = "); Serial.println(amb_diff, 8);
-  Serial.print("Ambient Temp = "); Serial.println(ambient_temp, 8);
+  Serial.print(F("  RAM_6 = ")); Serial.println(ram6);
+  Serial.print(F("  RAM_9 = ")); Serial.println(ram9);
+  Serial.print(F("  Gb = ")); Serial.println(Gb, 8);
+  Serial.print(F("  VRTA = ")); Serial.println(VRTA, 8);
+  Serial.print(F("  AMB = ")); Serial.println(AMB, 8);
+  Serial.print(F("  AMB - P_R = ")); Serial.println(amb_diff, 8);
+  Serial.print(F("  Ambient Temp = ")); Serial.println(ambient_temp, 8);
+#endif
   
   return ambient_temp;
+}
+
+/*!
+ *    @brief  Calculate object temperature
+ *    @return Object temperature in degrees Celsius or NaN if invalid cycle position
+ */
+double Adafruit_MLX90632::getObjectTemperature() {
+  // Read cycle position to determine which RAM registers to use
+  uint8_t cycle_pos = readCyclePosition();
+  
+  // Read raw data from RAM registers
+  Adafruit_BusIO_Register ram4_reg =
+      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_4), 2, MSBFIRST, 2);
+  Adafruit_BusIO_Register ram5_reg =
+      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_5), 2, MSBFIRST, 2);
+  Adafruit_BusIO_Register ram6_reg =
+      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_6), 2, MSBFIRST, 2);
+  Adafruit_BusIO_Register ram7_reg =
+      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_7), 2, MSBFIRST, 2);
+  Adafruit_BusIO_Register ram8_reg =
+      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_8), 2, MSBFIRST, 2);
+  Adafruit_BusIO_Register ram9_reg =
+      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_9), 2, MSBFIRST, 2);
+  
+  int16_t ram4 = (int16_t)ram4_reg.read();
+  int16_t ram5 = (int16_t)ram5_reg.read();
+  int16_t ram6 = (int16_t)ram6_reg.read();
+  int16_t ram7 = (int16_t)ram7_reg.read();
+  int16_t ram8 = (int16_t)ram8_reg.read();
+  int16_t ram9 = (int16_t)ram9_reg.read();
+  
+  // Calculate S based on cycle position
+  // S = (RAM_4 + RAM_5) / 2 if cycle_pos = 2
+  // S = (RAM_7 + RAM_8) / 2 if cycle_pos = 1
+  double S;
+  if (cycle_pos == 2) {
+    S = ((double)ram4 + (double)ram5) / 2.0;
+  } else if (cycle_pos == 1) {
+    S = ((double)ram7 + (double)ram8) / 2.0;
+  } else {
+    // Invalid cycle position - return NaN
+    return NAN;
+  }
+  
+  // Pre-calculations for object temperature
+  // VRTO = RAM_9 + Ka * (RAM_6 / 12)
+  // Ka = EE_Ka * 2^-10 (already calculated in getCalibrations())
+  double VRTO = (double)ram9 + Ka * ((double)ram6 / 12.0);
+  
+  // STO = [S/12]/VRTO * 2^19
+  double STO = ((S / 12.0) / VRTO) * (double)pow(2, 19);
+  
+  // Calculate AMB for ambient temperature (needed for TADUT)
+  double VRTA = (double)ram9 + Gb * ((double)ram6 / 12.0);
+  double AMB = ((double)ram6 / 12.0) / VRTA * (double)pow(2, 19);
+  
+  // Additional temperature calculations
+  double TADUT = (AMB - Eb) / Ea + 25.0;
+  double TAK = TADUT + 273.15;
+  double emissivity = 1.0;
+  
+  // For the first iteration, use current TADUT as TODUT approximation
+  double TODUT = TADUT;  
+  
+  // Calculate final object temperature:
+  // TO = pow( STO / (emiss * Fa * Ha * (1 + Ga * (TODUT - TO0) + Fb * (TADUT - TA0))) + TAK^4, 0.25) - 273.15 - Hb
+  double denominator = emissivity * Fa * Ha * (1.0 + Ga * (TODUT - TO0) + Fb * (TADUT - TA0));
+  double TAK4 = pow(TAK, 4);
+  double TO_K4 = (STO / denominator) + TAK4;
+  double TO = pow(TO_K4, 0.25) - 273.15 - Hb;
+  
+#ifdef MLX90632_DEBUG
+  // Debug output
+  Serial.print(F("  Cycle Position = ")); Serial.println(cycle_pos);
+  Serial.print(F("  RAM_4 = ")); Serial.println(ram4);
+  Serial.print(F("  RAM_5 = ")); Serial.println(ram5);
+  Serial.print(F("  RAM_6 = ")); Serial.println(ram6);
+  Serial.print(F("  RAM_7 = ")); Serial.println(ram7);
+  Serial.print(F("  RAM_8 = ")); Serial.println(ram8);
+  Serial.print(F("  RAM_9 = ")); Serial.println(ram9);
+  Serial.print(F("  S = ")); Serial.println(S, 8);
+  Serial.print(F("  Ka = ")); Serial.println(Ka, 8);
+  Serial.print(F("  VRTO = ")); Serial.println(VRTO, 8);
+  Serial.print(F("  STO = ")); Serial.println(STO, 8);
+  Serial.print(F("  VRTA = ")); Serial.println(VRTA, 8);
+  Serial.print(F("  AMB = ")); Serial.println(AMB, 8);
+  Serial.print(F("  TADUT = ")); Serial.println(TADUT, 8);
+  Serial.print(F("  TODUT = ")); Serial.println(TODUT, 8);
+  Serial.print(F("  TAK = ")); Serial.println(TAK, 8);
+  Serial.print(F("  TAK^4 = "));
+  if (TAK4 >= 1e9) {
+    Serial.print(TAK4 / 1e9, 2);
+    Serial.println(F("e+09"));
+  } else if (TAK4 >= 1e6) {
+    Serial.print(TAK4 / 1e6, 2);
+    Serial.println(F("e+06"));
+  } else {
+    Serial.println(TAK4, 2);
+  }
+  Serial.print(F("  TO0 = ")); Serial.println(TO0, 8);
+  Serial.print(F("  TA0 = ")); Serial.println(TA0, 8);
+  Serial.print(F("  Emissivity = ")); Serial.println(emissivity, 8);
+  Serial.print(F("  Denominator = ")); Serial.println(denominator, 8);
+  Serial.print(F("  TO_K^4 = "));
+  if (TO_K4 >= 1e9) {
+    Serial.print(TO_K4 / 1e9, 2);
+    Serial.println(F("e+09"));
+  } else if (TO_K4 >= 1e6) {
+    Serial.print(TO_K4 / 1e6, 2);
+    Serial.println(F("e+06"));
+  } else {
+    Serial.println(TO_K4, 2);
+  }
+  Serial.print(F("  TO = ")); Serial.println(TO, 8);
+#endif
+  
+  // Update TO0 and TA0 with current measurements for next calculation
+  TO0 = TO;     // Use calculated object temperature
+  TA0 = TADUT;  // Update with current ambient temperature calculation
+  
+  return TO;
 }
 
 /*!

@@ -185,6 +185,7 @@ public:
   mlx90632_refresh_rate_t getRefreshRate();
   bool getCalibrations();
   double getAmbientTemperature();
+  double getObjectTemperature();
 
 private:
   Adafruit_I2CDevice *i2c_dev; ///< Pointer to I2C bus interface
@@ -214,6 +215,10 @@ private:
   int16_t Kb;  ///< Kb calibration constant (16-bit signed)
   double Ha;   ///< Ha calibration constant
   double Hb;   ///< Hb calibration constant
+  
+  // Temperature calculation variables
+  double TO0;  ///< Previous object temperature (starts at 25.0)
+  double TA0;  ///< Previous ambient temperature (starts at 25.0)
 };
 
 #endif
