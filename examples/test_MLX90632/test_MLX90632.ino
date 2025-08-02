@@ -147,33 +147,46 @@ void setup() {
     while (1) { delay(10); }
   }
   Serial.println(F("Calibration constants loaded successfully"));
+  
+  // Clear new data flag before starting continuous measurements
+  Serial.println(F("\\n--- Starting Continuous Measurements ---"));
+  if (!mlx.resetNewData()) {
+    Serial.println(F("Failed to reset new data flag"));
+    while (1) { delay(10); }
+  }
+  Serial.println(F("New data flag reset - starting measurements"));
 }
 
 void loop() {
-  Serial.print(F("Device Busy: "));
-  Serial.print(mlx.isBusy() ? F("YES") : F("NO"));
-  Serial.print(F("  EEPROM Busy: "));
-  Serial.print(mlx.isEEPROMBusy() ? F("YES") : F("NO"));
-  Serial.print(F("  New Data: "));
-  Serial.print(mlx.isNewData() ? F("YES") : F("NO"));
-  Serial.print(F("  Cycle Position: "));
-  Serial.println(mlx.readCyclePosition());
-  
-  // Read ambient temperature
-  double ambientTemp = mlx.getAmbientTemperature();
-  Serial.print(F("Ambient Temperature: "));
-  Serial.print(ambientTemp, 4);
-  Serial.println(F(" °C"));
-  
-  // Read object temperature
-  double objectTemp = mlx.getObjectTemperature();
-  Serial.print(F("Object Temperature: "));
-  if (isnan(objectTemp)) {
-    Serial.println(F("NaN (invalid cycle position)"));
-  } else {
-    Serial.print(objectTemp, 4);
+  // Only check new data flag - much more efficient for continuous mode
+  if (mlx.isNewData()) {
+    Serial.print(F("New Data Available - Cycle Position: "));
+    Serial.println(mlx.readCyclePosition());
+    
+    // Read ambient temperature
+    double ambientTemp = mlx.getAmbientTemperature();
+    Serial.print(F("Ambient Temperature: "));
+    Serial.print(ambientTemp, 4);
     Serial.println(F(" °C"));
+    
+    // Read object temperature
+    double objectTemp = mlx.getObjectTemperature();
+    Serial.print(F("Object Temperature: "));
+    if (isnan(objectTemp)) {
+      Serial.println(F("NaN (invalid cycle position)"));
+    } else {
+      Serial.print(objectTemp, 4);
+      Serial.println(F(" °C"));
+    }
+    
+    // Reset new data flag after reading
+    if (!mlx.resetNewData()) {
+      Serial.println(F("Failed to reset new data flag"));
+    }
+    
+    Serial.println(); // Add blank line between readings
   }
   
-  delay(500);
+  // Small delay to prevent overwhelming the I2C bus
+  delay(10);
 }

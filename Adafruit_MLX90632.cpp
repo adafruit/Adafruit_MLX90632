@@ -416,19 +416,35 @@ bool Adafruit_MLX90632::getCalibrations() {
  *    @return Ambient temperature in degrees Celsius
  */
 double Adafruit_MLX90632::getAmbientTemperature() {
-  // Read raw data from RAM registers
-  Adafruit_BusIO_Register ram6_reg =
-      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_6), 2, MSBFIRST, 2);
-  Adafruit_BusIO_Register ram9_reg =
-      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_9), 2, MSBFIRST, 2);
+  // Check measurement mode to determine which RAM registers to use
+  mlx90632_meas_select_t meas_mode = getMeasurementSelect();
   
-  int16_t ram6 = (int16_t)ram6_reg.read();
-  int16_t ram9 = (int16_t)ram9_reg.read();
+  int16_t ram_ambient, ram_ref;
   
-  // Pre-calculations for ambient temperature
+  if (meas_mode == MLX90632_MEAS_EXTENDED_RANGE) {
+    // Extended range mode: use RAM_54 and RAM_57
+    Adafruit_BusIO_Register ram54_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_54), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram57_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_57), 2, MSBFIRST, 2);
+    
+    ram_ambient = (int16_t)ram54_reg.read();
+    ram_ref = (int16_t)ram57_reg.read();
+  } else {
+    // Medical mode: use RAM_6 and RAM_9 (default)
+    Adafruit_BusIO_Register ram6_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_6), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram9_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_9), 2, MSBFIRST, 2);
+    
+    ram_ambient = (int16_t)ram6_reg.read();
+    ram_ref = (int16_t)ram9_reg.read();
+  }
+  
+  // Pre-calculations for ambient temperature (same for both modes)
   // Gb = EE_Gb * 2^-10 (already calculated in getCalibrations())
-  double VRTA = (double)ram9 + Gb * ((double)ram6 / 12.0);
-  double AMB = ((double)ram6 / 12.0) / VRTA * (double)pow(2, 19);
+  double VRTA = (double)ram_ref + Gb * ((double)ram_ambient / 12.0);
+  double AMB = ((double)ram_ambient / 12.0) / VRTA * (double)pow(2, 19);
   
   // Calculate ambient temperature: P_O + (AMB - P_R)/P_G + P_T * (AMB - P_R)^2
   double amb_diff = AMB - P_R;
@@ -436,8 +452,9 @@ double Adafruit_MLX90632::getAmbientTemperature() {
   
 #ifdef MLX90632_DEBUG
   // Debug output
-  Serial.print(F("  RAM_6 = ")); Serial.println(ram6);
-  Serial.print(F("  RAM_9 = ")); Serial.println(ram9);
+  Serial.print(F("  Mode = ")); Serial.println(meas_mode == MLX90632_MEAS_EXTENDED_RANGE ? F("Extended") : F("Medical"));
+  Serial.print(F("  RAM_ambient = ")); Serial.println(ram_ambient);
+  Serial.print(F("  RAM_ref = ")); Serial.println(ram_ref);
   Serial.print(F("  Gb = ")); Serial.println(Gb, 8);
   Serial.print(F("  VRTA = ")); Serial.println(VRTA, 8);
   Serial.print(F("  AMB = ")); Serial.println(AMB, 8);
@@ -453,54 +470,94 @@ double Adafruit_MLX90632::getAmbientTemperature() {
  *    @return Object temperature in degrees Celsius or NaN if invalid cycle position
  */
 double Adafruit_MLX90632::getObjectTemperature() {
-  // Read cycle position to determine which RAM registers to use
-  uint8_t cycle_pos = readCyclePosition();
+  // Check measurement mode to determine which calculation to use
+  mlx90632_meas_select_t meas_mode = getMeasurementSelect();
   
-  // Read raw data from RAM registers
-  Adafruit_BusIO_Register ram4_reg =
-      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_4), 2, MSBFIRST, 2);
-  Adafruit_BusIO_Register ram5_reg =
-      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_5), 2, MSBFIRST, 2);
-  Adafruit_BusIO_Register ram6_reg =
-      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_6), 2, MSBFIRST, 2);
-  Adafruit_BusIO_Register ram7_reg =
-      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_7), 2, MSBFIRST, 2);
-  Adafruit_BusIO_Register ram8_reg =
-      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_8), 2, MSBFIRST, 2);
-  Adafruit_BusIO_Register ram9_reg =
-      Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_9), 2, MSBFIRST, 2);
-  
-  int16_t ram4 = (int16_t)ram4_reg.read();
-  int16_t ram5 = (int16_t)ram5_reg.read();
-  int16_t ram6 = (int16_t)ram6_reg.read();
-  int16_t ram7 = (int16_t)ram7_reg.read();
-  int16_t ram8 = (int16_t)ram8_reg.read();
-  int16_t ram9 = (int16_t)ram9_reg.read();
-  
-  // Calculate S based on cycle position
-  // S = (RAM_4 + RAM_5) / 2 if cycle_pos = 2
-  // S = (RAM_7 + RAM_8) / 2 if cycle_pos = 1
   double S;
-  if (cycle_pos == 2) {
-    S = ((double)ram4 + (double)ram5) / 2.0;
-  } else if (cycle_pos == 1) {
-    S = ((double)ram7 + (double)ram8) / 2.0;
+  int16_t ram_ambient, ram_ref;
+  
+  if (meas_mode == MLX90632_MEAS_EXTENDED_RANGE) {
+    // Extended range mode: use RAM_52-59
+    Adafruit_BusIO_Register ram52_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_52), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram53_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_53), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram54_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_54), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram55_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_55), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram56_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_56), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram57_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_57), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram58_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_58), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram59_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_59), 2, MSBFIRST, 2);
+    
+    int16_t ram52 = (int16_t)ram52_reg.read();
+    int16_t ram53 = (int16_t)ram53_reg.read();
+    int16_t ram54 = (int16_t)ram54_reg.read();
+    int16_t ram55 = (int16_t)ram55_reg.read();
+    int16_t ram56 = (int16_t)ram56_reg.read();
+    int16_t ram57 = (int16_t)ram57_reg.read();
+    int16_t ram58 = (int16_t)ram58_reg.read();
+    int16_t ram59 = (int16_t)ram59_reg.read();
+    
+    // Extended range S calculation
+    S = ((double)ram52 - (double)ram53 - (double)ram55 + (double)ram56) / 2.0 + (double)ram58 + (double)ram59;
+    ram_ambient = ram54;
+    ram_ref = ram57;
+    
   } else {
-    // Invalid cycle position - return NaN
-    return NAN;
+    // Medical mode: use cycle position and RAM_4-9
+    uint8_t cycle_pos = readCyclePosition();
+    
+    Adafruit_BusIO_Register ram4_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_4), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram5_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_5), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram6_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_6), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram7_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_7), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram8_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_8), 2, MSBFIRST, 2);
+    Adafruit_BusIO_Register ram9_reg =
+        Adafruit_BusIO_Register(i2c_dev, swapBytes(MLX90632_REG_RAM_9), 2, MSBFIRST, 2);
+    
+    int16_t ram4 = (int16_t)ram4_reg.read();
+    int16_t ram5 = (int16_t)ram5_reg.read();
+    int16_t ram6 = (int16_t)ram6_reg.read();
+    int16_t ram7 = (int16_t)ram7_reg.read();
+    int16_t ram8 = (int16_t)ram8_reg.read();
+    int16_t ram9 = (int16_t)ram9_reg.read();
+    
+    // Medical mode S calculation based on cycle position
+    if (cycle_pos == 2) {
+      S = ((double)ram4 + (double)ram5) / 2.0;
+    } else if (cycle_pos == 1) {
+      S = ((double)ram7 + (double)ram8) / 2.0;
+    } else {
+      // Invalid cycle position - return NaN
+      return NAN;
+    }
+    
+    ram_ambient = ram6;
+    ram_ref = ram9;
   }
   
-  // Pre-calculations for object temperature
-  // VRTO = RAM_9 + Ka * (RAM_6 / 12)
+  // Pre-calculations for object temperature (same for both modes)
+  // VRTO = ram_ref + Ka * (ram_ambient / 12)
   // Ka = EE_Ka * 2^-10 (already calculated in getCalibrations())
-  double VRTO = (double)ram9 + Ka * ((double)ram6 / 12.0);
+  double VRTO = (double)ram_ref + Ka * ((double)ram_ambient / 12.0);
   
   // STO = [S/12]/VRTO * 2^19
   double STO = ((S / 12.0) / VRTO) * (double)pow(2, 19);
   
   // Calculate AMB for ambient temperature (needed for TADUT)
-  double VRTA = (double)ram9 + Gb * ((double)ram6 / 12.0);
-  double AMB = ((double)ram6 / 12.0) / VRTA * (double)pow(2, 19);
+  double VRTA = (double)ram_ref + Gb * ((double)ram_ambient / 12.0);
+  double AMB = ((double)ram_ambient / 12.0) / VRTA * (double)pow(2, 19);
   
   // Additional temperature calculations
   double TADUT = (AMB - Eb) / Ea + 25.0;
@@ -519,13 +576,12 @@ double Adafruit_MLX90632::getObjectTemperature() {
   
 #ifdef MLX90632_DEBUG
   // Debug output
-  Serial.print(F("  Cycle Position = ")); Serial.println(cycle_pos);
-  Serial.print(F("  RAM_4 = ")); Serial.println(ram4);
-  Serial.print(F("  RAM_5 = ")); Serial.println(ram5);
-  Serial.print(F("  RAM_6 = ")); Serial.println(ram6);
-  Serial.print(F("  RAM_7 = ")); Serial.println(ram7);
-  Serial.print(F("  RAM_8 = ")); Serial.println(ram8);
-  Serial.print(F("  RAM_9 = ")); Serial.println(ram9);
+  Serial.print(F("  Mode = ")); Serial.println(meas_mode == MLX90632_MEAS_EXTENDED_RANGE ? F("Extended") : F("Medical"));
+  if (meas_mode == MLX90632_MEAS_MEDICAL) {
+    Serial.print(F("  Cycle Position = ")); Serial.println(readCyclePosition());
+  }
+  Serial.print(F("  RAM_ambient = ")); Serial.println(ram_ambient);
+  Serial.print(F("  RAM_ref = ")); Serial.println(ram_ref);
   Serial.print(F("  S = ")); Serial.println(S, 8);
   Serial.print(F("  Ka = ")); Serial.println(Ka, 8);
   Serial.print(F("  VRTO = ")); Serial.println(VRTO, 8);
