@@ -56,10 +56,12 @@ void setup() {
     Serial.println(F("Unknown"));
   }
   
-  // Set and get mode (continuous)
+  // Set and get mode - choose one:
   Serial.println(F("\n--- Mode Settings ---"));
   if (!mlx.setMode(MLX90632_MODE_CONTINUOUS)) {
-    Serial.println(F("Failed to set mode to Continuous"));
+  // if (!mlx.setMode(MLX90632_MODE_STEP)) {           // Uncomment for step mode testing
+  // if (!mlx.setMode(MLX90632_MODE_SLEEPING_STEP)) {  // Uncomment for sleeping step mode testing
+    Serial.println(F("Failed to set mode"));
     while (1) { delay(10); }
   }
   
@@ -140,14 +142,6 @@ void setup() {
       Serial.println(F("Unknown"));
   }
   
-  // Load calibration constants
-  Serial.println(F("\n--- Calibration Constants ---"));
-  if (!mlx.getCalibrations()) {
-    Serial.println(F("Failed to load calibration constants"));
-    while (1) { delay(10); }
-  }
-  Serial.println(F("Calibration constants loaded successfully"));
-  
   // Clear new data flag before starting continuous measurements
   Serial.println(F("\\n--- Starting Continuous Measurements ---"));
   if (!mlx.resetNewData()) {
@@ -185,6 +179,15 @@ void loop() {
     }
     
     Serial.println(); // Add blank line between readings
+  }
+  
+  // Check if we need to trigger a new measurement for step modes
+  mlx90632_mode_t currentMode = mlx.getMode();
+  if (currentMode == MLX90632_MODE_STEP || currentMode == MLX90632_MODE_SLEEPING_STEP) {
+    // Trigger single measurement (SOC bit) for step modes
+    if (!mlx.startSingleMeasurement()) {
+      Serial.println(F("Failed to start single measurement"));
+    }
   }
   
   // Small delay to prevent overwhelming the I2C bus
