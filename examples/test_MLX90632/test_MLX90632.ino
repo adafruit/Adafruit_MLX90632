@@ -32,6 +32,10 @@ void setup() {
   Serial.print("Product Code: 0x");
   Serial.println(productCode, HEX);
   
+  uint16_t eepromVersion = mlx.getEEPROMVersion();
+  Serial.print("EEPROM Version: 0x");
+  Serial.println(eepromVersion, HEX);
+  
   // Decode product code bits
   uint8_t fov = (productCode >> 8) & 0x3;
   uint8_t package = (productCode >> 5) & 0x7; 
@@ -97,6 +101,52 @@ void setup() {
     default:
       Serial.println("Unknown");
   }
+  
+  // Set and get refresh rate (default to 2Hz)
+  Serial.println("\n--- Refresh Rate Settings ---");
+  if (!mlx.setRefreshRate(MLX90632_REFRESH_2HZ)) {
+    Serial.println("Failed to set refresh rate to 2Hz");
+    while (1) { delay(10); }
+  }
+  
+  mlx90632_refresh_rate_t currentRefreshRate = mlx.getRefreshRate();
+  Serial.print("Current refresh rate: ");
+  switch (currentRefreshRate) {
+    case MLX90632_REFRESH_0_5HZ:
+      Serial.println("0.5 Hz");
+      break;
+    case MLX90632_REFRESH_1HZ:
+      Serial.println("1 Hz");
+      break;
+    case MLX90632_REFRESH_2HZ:
+      Serial.println("2 Hz");
+      break;
+    case MLX90632_REFRESH_4HZ:
+      Serial.println("4 Hz");
+      break;
+    case MLX90632_REFRESH_8HZ:
+      Serial.println("8 Hz");
+      break;
+    case MLX90632_REFRESH_16HZ:
+      Serial.println("16 Hz");
+      break;
+    case MLX90632_REFRESH_32HZ:
+      Serial.println("32 Hz");
+      break;
+    case MLX90632_REFRESH_64HZ:
+      Serial.println("64 Hz");
+      break;
+    default:
+      Serial.println("Unknown");
+  }
+  
+  // Load calibration constants
+  Serial.println("\n--- Calibration Constants ---");
+  if (!mlx.getCalibrations()) {
+    Serial.println("Failed to load calibration constants");
+    while (1) { delay(10); }
+  }
+  Serial.println("Calibration constants loaded successfully");
 }
 
 void loop() {
@@ -108,6 +158,12 @@ void loop() {
   Serial.print(mlx.isNewData() ? "YES" : "NO");
   Serial.print("  Cycle Position: ");
   Serial.println(mlx.readCyclePosition());
+  
+  // Read ambient temperature
+  double ambientTemp = mlx.getAmbientTemperature();
+  Serial.print("Ambient Temperature: ");
+  Serial.print(ambientTemp, 4);
+  Serial.println(" °C");
   
   delay(500);
 }

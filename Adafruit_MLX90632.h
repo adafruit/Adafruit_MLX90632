@@ -141,6 +141,20 @@ typedef enum {
   MLX90632_MEAS_MEDICAL = 0x00,        ///< Medical measurement
   MLX90632_MEAS_EXTENDED_RANGE = 0x11  ///< Extended range measurement
 } mlx90632_meas_select_t;
+
+/*!
+ *    @brief  MLX90632 refresh rates
+ */
+typedef enum {
+  MLX90632_REFRESH_0_5HZ = 0,   ///< 0.5 Hz (2000ms)
+  MLX90632_REFRESH_1HZ = 1,     ///< 1 Hz (1000ms) 
+  MLX90632_REFRESH_2HZ = 2,     ///< 2 Hz (500ms)
+  MLX90632_REFRESH_4HZ = 3,     ///< 4 Hz (250ms)
+  MLX90632_REFRESH_8HZ = 4,     ///< 8 Hz (125ms)
+  MLX90632_REFRESH_16HZ = 5,    ///< 16 Hz (62.5ms)
+  MLX90632_REFRESH_32HZ = 6,    ///< 32 Hz (31.25ms)
+  MLX90632_REFRESH_64HZ = 7     ///< 64 Hz (15.625ms)
+} mlx90632_refresh_rate_t;
 /*=========================================================================*/
 
 /*!
@@ -154,6 +168,7 @@ public:
   bool begin(uint8_t i2c_addr = MLX90632_DEFAULT_ADDR, TwoWire *wire = &Wire);
   uint64_t getProductID();
   uint16_t getProductCode();
+  uint16_t getEEPROMVersion();
   bool startSingleMeasurement();
   bool startFullMeasurement();
   bool setMode(mlx90632_mode_t mode);
@@ -166,10 +181,39 @@ public:
   uint8_t readCyclePosition();
   bool resetNewData();
   bool isNewData();
+  bool setRefreshRate(mlx90632_refresh_rate_t refresh_rate);
+  mlx90632_refresh_rate_t getRefreshRate();
+  bool getCalibrations();
+  double getAmbientTemperature();
 
 private:
   Adafruit_I2CDevice *i2c_dev; ///< Pointer to I2C bus interface
   uint16_t swapBytes(uint16_t value); ///< Byte swap helper for register addresses
+  uint32_t read32BitRegister(uint16_t lsw_addr); ///< Helper to read 32-bit values
+  
+  // Calibration constants
+  double P_R;  ///< P_R calibration constant
+  double P_G;  ///< P_G calibration constant  
+  double P_T;  ///< P_T calibration constant
+  double P_O;  ///< P_O calibration constant
+  double Aa;   ///< Aa calibration constant
+  double Ab;   ///< Ab calibration constant
+  double Ba;   ///< Ba calibration constant
+  double Bb;   ///< Bb calibration constant
+  double Ca;   ///< Ca calibration constant
+  double Cb;   ///< Cb calibration constant
+  double Da;   ///< Da calibration constant
+  double Db;   ///< Db calibration constant
+  double Ea;   ///< Ea calibration constant
+  double Eb;   ///< Eb calibration constant
+  double Fa;   ///< Fa calibration constant
+  double Fb;   ///< Fb calibration constant
+  double Ga;   ///< Ga calibration constant
+  double Gb;   ///< Gb calibration constant
+  double Ka;   ///< Ka calibration constant
+  int16_t Kb;  ///< Kb calibration constant (16-bit signed)
+  double Ha;   ///< Ha calibration constant
+  double Hb;   ///< Hb calibration constant
 };
 
 #endif
