@@ -10,7 +10,9 @@
  *  please support Adafruit and open-source hardware by purchasing products from
  * 	Adafruit!
  *
- *	BSD license (see license.txt)
+ *  Written by Limor "Ladyada" Fried with assistance from Claude Code.
+ *
+ *	MIT license, see LICENSE for more information
  */
 
 #ifndef _ADAFRUIT_MLX90632_H

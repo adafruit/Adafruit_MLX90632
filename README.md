@@ -2,6 +2,20 @@
 
 Arduino library for the MLX90632 Far Infrared Temperature Sensor
 
+This library provides a complete interface for the MLX90632 Far Infrared Temperature Sensor, supporting both medical and extended range measurement modes with automatic calibration loading and comprehensive temperature calculations using the Stefan-Boltzmann law.
+
+## Features
+
+- Complete MLX90632 register control and status monitoring  
+- Support for all measurement modes: Continuous, Step, and Sleeping Step
+- Automatic calibration constant loading from EEPROM
+- Both medical and extended range measurement support
+- Stefan-Boltzmann law temperature calculations for accurate object temperature
+- Double precision calibration with proper scaling factors
+- Efficient new data flag handling for optimal performance
+- Debug output control with preprocessor directives
+- Hardware tested and verified functionality
+
 ## Dependencies
  * [Adafruit BusIO](https://github.com/adafruit/Adafruit_BusIO)
 
@@ -27,7 +41,7 @@ Note that the formatting output by `clang-format` is what the automated formatti
 
 ## About this Driver
 
-Written by Adafruit Industries.
+Written by Limor "Ladyada" Fried for Adafruit Industries with assistance from Claude Code.
 
-MIT license, check license.txt for more information.
+MIT license, check LICENSE for more information.
 All text above must be included in any redistribution.
