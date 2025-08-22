@@ -25,6 +25,7 @@
 Adafruit_MLX90632::Adafruit_MLX90632() {
   TO0 = 25.0; // Initialize previous object temperature
   TA0 = 25.0; // Initialize previous ambient temperature
+  i2c_dev = nullptr;
 }
 
 /*!
