@@ -143,7 +143,7 @@ void setup() {
   }
   
   // Clear new data flag before starting continuous measurements
-  Serial.println(F("\\n--- Starting Continuous Measurements ---"));
+  Serial.println(F("\n--- Starting Continuous Measurements ---"));
   if (!mlx.resetNewData()) {
     Serial.println(F("Failed to reset new data flag"));
     while (1) { delay(10); }

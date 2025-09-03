@@ -17,7 +17,7 @@
 
 #include "Adafruit_MLX90632.h"
 
-#define MLX90632_DEBUG
+// #define MLX90632_DEBUG
 
 /*!
  *    @brief  Instantiates a new MLX90632 class
