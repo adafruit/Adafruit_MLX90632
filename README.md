@@ -1,4 +1,4 @@
-# Adafruit MLX90632 [![Build Status](https://github.com/adafruit/Adafruit_MLX90632/workflows/Arduino%20Library%20CI/badge.svg)](https://github.com/adafruit/Adafruit_MLX90632/actions)
+# Adafruit MLX90632 [![Build Status](https://github.com/adafruit/Adafruit_MLX90632/workflows/Arduino%20Library%20CI/badge.svg)](https://github.com/adafruit/Adafruit_MLX90632/actions)(https://github.com/adafruit/Adafruit_MLX90632/actions)[![Documentation](https://github.com/adafruit/ci-arduino/blob/master/assets/doxygen_badge.svg)]
 
 Arduino library for the MLX90632 Far Infrared Temperature Sensor
 
