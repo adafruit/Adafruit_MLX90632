@@ -102,10 +102,10 @@ void setup() {
       Serial.println(F("Unknown"));
   }
 
-  // Set and get refresh rate
+  // Set and get refresh rate (default to 2Hz)
   Serial.println(F("\n--- Refresh Rate Settings ---"));
-  if (!mlx.setRefreshRate(MLX90632_REFRESH_0_5HZ)) {
-    Serial.println(F("Failed to set refresh rate."));
+  if (!mlx.setRefreshRate(MLX90632_REFRESH_2HZ)) {
+    Serial.println(F("Failed to set refresh rate to 2Hz"));
     while (1) { delay(10); }
   }
 
