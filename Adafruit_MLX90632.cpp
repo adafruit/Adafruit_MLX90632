@@ -286,7 +286,7 @@ bool Adafruit_MLX90632::setRefreshRate(mlx90632_refresh_rate_t refresh_rate) {
   uint16_t meas1, meas2, newvalue;
 
   meas1 = meas1_reg.read();
-  newvalue = (meas1 & 0xF8FF) | (refresh_rate << 8);
+  newvalue = (meas1 & ~0x700) | (refresh_rate << 8);
 
   if (newvalue != meas1) {
     if (!writeEEPROM(MLX90632_REG_EE_MEAS_1, newvalue)) {
@@ -295,7 +295,7 @@ bool Adafruit_MLX90632::setRefreshRate(mlx90632_refresh_rate_t refresh_rate) {
   }
 
   meas2 = meas2_reg.read();
-  newvalue = (meas2 & 0xF8FF) | (refresh_rate << 8);
+  newvalue = (meas2 & ~0x700) | (refresh_rate << 8);
 
   if (newvalue != meas2) {
     if (!writeEEPROM(MLX90632_REG_EE_MEAS_2, newvalue)) {
