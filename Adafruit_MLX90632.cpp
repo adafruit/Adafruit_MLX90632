@@ -279,23 +279,31 @@ bool Adafruit_MLX90632::isNewData() {
  *    @return True if both writes succeeded, false otherwise
  */
 bool Adafruit_MLX90632::setRefreshRate(mlx90632_refresh_rate_t refresh_rate) {
-  // Set refresh rate in EE_MEAS_1 register (bits 10:8)
   Adafruit_BusIO_Register meas1_reg = Adafruit_BusIO_Register(
       i2c_dev, swapBytes(MLX90632_REG_EE_MEAS_1), 2, MSBFIRST, 2);
-  Adafruit_BusIO_RegisterBits meas1_refresh_bits =
-      Adafruit_BusIO_RegisterBits(&meas1_reg, 3, 8);
-
-  if (!meas1_refresh_bits.write(refresh_rate)) {
-    return false;
-  }
-
-  // Set refresh rate in EE_MEAS_2 register (bits 10:8)
   Adafruit_BusIO_Register meas2_reg = Adafruit_BusIO_Register(
       i2c_dev, swapBytes(MLX90632_REG_EE_MEAS_2), 2, MSBFIRST, 2);
-  Adafruit_BusIO_RegisterBits meas2_refresh_bits =
-      Adafruit_BusIO_RegisterBits(&meas2_reg, 3, 8);
+  uint16_t meas1, meas2, newvalue;
 
-  return meas2_refresh_bits.write(refresh_rate);
+  meas1 = meas1_reg.read();
+  newvalue = (meas1 & 0xF8FF) | (refresh_rate << 8);
+
+  if (newvalue != meas1) {
+    if (!writeEEPROM(MLX90632_REG_EE_MEAS_1, newvalue)) {
+      return false;
+    }
+  }
+
+  meas2 = meas2_reg.read();
+  newvalue = (meas2 & 0xF8FF) | (refresh_rate << 8);
+
+  if (newvalue != meas2) {
+    if (!writeEEPROM(MLX90632_REG_EE_MEAS_2, newvalue)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /*!
@@ -695,4 +703,71 @@ double Adafruit_MLX90632::getObjectTemperature() {
  */
 uint16_t Adafruit_MLX90632::swapBytes(uint16_t value) {
   return (value << 8) | (value >> 8);
+}
+
+/*!
+ *    @brief  This command unlocks the EEPROM allowing only one write operation
+ * to an EEPROM word in the customer part of the EEPROM. After the EEPROM write,
+ * the EEPROM access goes back to the “NoKey” access mode
+ *    @return True if successful, otherwise false
+ */
+bool Adafruit_MLX90632::unlockEEPROM() {
+  uint8_t unlock[4] = {0x30, 0x05, 0x55, 0x4C};
+  if (!i2c_dev->write(unlock, 4)) {
+    return false;
+  }
+  return true;
+}
+
+/*!
+ *    @brief  Write data to EEPROM at address location.
+ *    @param address The EEPROM address.
+ *    @param data The data to write.
+ *    @return True if successful, otherwise false
+ */
+bool Adafruit_MLX90632::writeEEPROM(uint16_t address, uint16_t data) {
+  uint8_t eewrite[4];
+  eewrite[0] = address >> 8;
+  eewrite[1] = address & 0xFF;
+  eewrite[2] = data >> 8;
+  eewrite[3] = data & 0xFF;
+
+  if (!eraseEEPROM(address)) {
+    return false;
+  }
+
+  if (!unlockEEPROM()) {
+    return false;
+  }
+
+  if (!i2c_dev->write(eewrite, 4)) {
+    return false;
+  }
+
+  while (isEEPROMBusy())
+    ;
+
+  return true;
+}
+
+/*!
+ *    @brief  Erase EEPROM at address location.
+ *    @return True if successful, otherwise false
+ */
+bool Adafruit_MLX90632::eraseEEPROM(uint16_t address) {
+  uint8_t buffer[4] = {0};
+
+  buffer[0] = address >> 8;
+  buffer[1] = address & 0xFF;
+
+  if (!unlockEEPROM()) {
+    return false;
+  }
+
+  i2c_dev->write(buffer, 4);
+
+  while (isEEPROMBusy())
+    ;
+
+  return true;
 }

@@ -7,7 +7,7 @@ Adafruit_MLX90632 mlx = Adafruit_MLX90632();
 void setup() {
   Serial.begin(115200);
   while (!Serial) delay(10);
-  
+
   Serial.println(F("Adafruit MLX90632 test"));
 
   if (!mlx.begin()) {
@@ -15,56 +15,54 @@ void setup() {
     while (1) { delay(10); }
   }
   Serial.println(F("MLX90632 Found!"));
-  
+
   // Reset the device
   if (!mlx.reset()) {
     Serial.println(F("Device reset failed"));
     while (1) { delay(10); }
   }
   Serial.println(F("Device reset: SUCCESS"));
-  
+
   uint64_t productID = mlx.getProductID();
   Serial.print(F("Product ID: 0x"));
   Serial.print((uint32_t)(productID >> 32), HEX);
   Serial.println((uint32_t)(productID & 0xFFFFFFFF), HEX);
-  
+
   uint16_t productCode = mlx.getProductCode();
   Serial.print(F("Product Code: 0x"));
   Serial.println(productCode, HEX);
-  
+
   uint16_t eepromVersion = mlx.getEEPROMVersion();
   Serial.print(F("EEPROM Version: 0x"));
   Serial.println(eepromVersion, HEX);
-  
+
   // Decode product code bits
   uint8_t fov = (productCode >> 8) & 0x3;
-  uint8_t package = (productCode >> 5) & 0x7; 
+  uint8_t package = (productCode >> 5) & 0x7;
   uint8_t accuracy = productCode & 0x1F;
-  
+
   Serial.print(F("FOV: "));
   Serial.println(fov == 0 ? F("50°") : F("Unknown"));
-  
+
   Serial.print(F("Package: "));
   Serial.println(package == 1 ? F("SFN 3x3") : F("Unknown"));
-  
+
   Serial.print(F("Accuracy: "));
   if (accuracy == 1) {
     Serial.println(F("Medical"));
   } else if (accuracy == 2) {
-    Serial.println(F("Standard")); 
+    Serial.println(F("Standard"));
   } else {
     Serial.println(F("Unknown"));
   }
-  
-  // Set and get mode - choose one:
-  Serial.println(F("\n--- Mode Settings ---"));
-  if (!mlx.setMode(MLX90632_MODE_CONTINUOUS)) {
-  // if (!mlx.setMode(MLX90632_MODE_STEP)) {           // Uncomment for step mode testing
-  // if (!mlx.setMode(MLX90632_MODE_SLEEPING_STEP)) {  // Uncomment for sleeping step mode testing
-    Serial.println(F("Failed to set mode"));
+
+  // Need to be in HALT mode for EEPROM setting changes
+  Serial.println(F("\n---  Setting HALT mode for setup ---"));
+  if (!mlx.setMode(MLX90632_MODE_HALT)) {
+    Serial.println(F("Failed to set HALT mode"));
     while (1) { delay(10); }
   }
-  
+
   mlx90632_mode_t currentMode = mlx.getMode();
   Serial.print(F("Current mode: "));
   switch (currentMode) {
@@ -83,14 +81,14 @@ void setup() {
     default:
       Serial.println(F("Unknown"));
   }
-  
+
   // Set and get measurement select (medical)
   Serial.println(F("\n--- Measurement Select Settings ---"));
   if (!mlx.setMeasurementSelect(MLX90632_MEAS_MEDICAL)) {
     Serial.println(F("Failed to set measurement select to Medical"));
     while (1) { delay(10); }
   }
-  
+
   mlx90632_meas_select_t currentMeasSelect = mlx.getMeasurementSelect();
   Serial.print(F("Current measurement select: "));
   switch (currentMeasSelect) {
@@ -103,14 +101,14 @@ void setup() {
     default:
       Serial.println(F("Unknown"));
   }
-  
-  // Set and get refresh rate (default to 2Hz)
+
+  // Set and get refresh rate
   Serial.println(F("\n--- Refresh Rate Settings ---"));
-  if (!mlx.setRefreshRate(MLX90632_REFRESH_2HZ)) {
-    Serial.println(F("Failed to set refresh rate to 2Hz"));
+  if (!mlx.setRefreshRate(MLX90632_REFRESH_0_5HZ)) {
+    Serial.println(F("Failed to set refresh rate."));
     while (1) { delay(10); }
   }
-  
+
   mlx90632_refresh_rate_t currentRefreshRate = mlx.getRefreshRate();
   Serial.print(F("Current refresh rate: "));
   switch (currentRefreshRate) {
@@ -141,9 +139,13 @@ void setup() {
     default:
       Serial.println(F("Unknown"));
   }
-  
+
   // Clear new data flag before starting continuous measurements
   Serial.println(F("\n--- Starting Continuous Measurements ---"));
+  if (!mlx.setMode(MLX90632_MODE_CONTINUOUS)) {
+    Serial.println(F("Failed to set CONTINUOUS mode"));
+    while (1) { delay(10); }
+  }
   if (!mlx.resetNewData()) {
     Serial.println(F("Failed to reset new data flag"));
     while (1) { delay(10); }
@@ -156,13 +158,13 @@ void loop() {
   if (mlx.isNewData()) {
     Serial.print(F("New Data Available - Cycle Position: "));
     Serial.println(mlx.readCyclePosition());
-    
+
     // Read ambient temperature
     double ambientTemp = mlx.getAmbientTemperature();
     Serial.print(F("Ambient Temperature: "));
     Serial.print(ambientTemp, 4);
     Serial.println(F(" °C"));
-    
+
     // Read object temperature
     double objectTemp = mlx.getObjectTemperature();
     Serial.print(F("Object Temperature: "));
@@ -172,15 +174,15 @@ void loop() {
       Serial.print(objectTemp, 4);
       Serial.println(F(" °C"));
     }
-    
+
     // Reset new data flag after reading
     if (!mlx.resetNewData()) {
       Serial.println(F("Failed to reset new data flag"));
     }
-    
+
     Serial.println(); // Add blank line between readings
   }
-  
+
   // Check if we need to trigger a new measurement for step modes
   mlx90632_mode_t currentMode = mlx.getMode();
   if (currentMode == MLX90632_MODE_STEP || currentMode == MLX90632_MODE_SLEEPING_STEP) {
@@ -189,7 +191,7 @@ void loop() {
       Serial.println(F("Failed to start single measurement"));
     }
   }
-  
+
   // Small delay to prevent overwhelming the I2C bus
   delay(10);
 }
