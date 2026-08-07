@@ -744,8 +744,9 @@ bool Adafruit_MLX90632::writeEEPROM(uint16_t address, uint16_t data) {
     return false;
   }
 
-  while (isEEPROMBusy())
-    ;
+  while (isEEPROMBusy()) {
+    delay(1);
+  }
 
   return true;
 }
@@ -766,8 +767,9 @@ bool Adafruit_MLX90632::eraseEEPROM(uint16_t address) {
 
   i2c_dev->write(buffer, 4);
 
-  while (isEEPROMBusy())
-    ;
+  while (isEEPROMBusy()) {
+    delay(1);
+  }
 
   return true;
 }
