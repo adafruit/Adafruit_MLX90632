@@ -231,6 +231,11 @@ class Adafruit_MLX90632 {
       uint16_t value); ///< Byte swap helper for register addresses
   uint32_t read32BitRegister(
       uint16_t lsw_addr); ///< Helper to read 32-bit values
+  // EEPROM access
+  bool unlockEEPROM(); ///< Unlock EEPROM to allow writing
+  bool writeEEPROM(uint16_t address,
+                   uint16_t data);    ///< Write data to EEPROM address
+  bool eraseEEPROM(uint16_t address); ///< Erase EEPROM at address
 
   // Calibration constants
   double P_R; ///< P_R calibration constant
